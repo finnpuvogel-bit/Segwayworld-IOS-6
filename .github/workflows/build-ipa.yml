@@ -15,35 +15,34 @@ jobs:
 
       - name: Install CocoaPods
         run: |
-          cd SRC
           pod install || pod install --repo-update || true
 
       - name: Build Xcode Project
         run: |
-          cd SRC
-          # Workspace/Projekt suchen
-          WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
-          PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
+          # Projekt/Workspace dynamisch über das gesamte Repo finden
+          WORKSPACE=$(find . -name "*.xcworkspace" -not -path "*/Pods/*" | head -n 1)
+          PROJECT=$(find . -name "*.xcodeproj" -not -path "*/Pods/*" | head -n 1)
           
-          # Das erste verfügbare Scheme dynamisch auslesen
           if [ -n "$WORKSPACE" ]; then
             TARGET_SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list | awk '/Schemes:/{flag=1; next} /^[[:space:]]*$/{flag=0} flag' | xargs | awk '{print $1}')
             xcodebuild -workspace "$WORKSPACE" -scheme "$TARGET_SCHEME" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-          else
+          elif [ -n "$PROJECT" ]; then
             TARGET_SCHEME=$(xcodebuild -project "$PROJECT" -list | awk '/Schemes:/{flag=1; next} /^[[:space:]]*$/{flag=0} flag' | xargs | awk '{print $1}')
             xcodebuild -project "$PROJECT" -scheme "$TARGET_SCHEME" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          else
+            echo "Kein Xcode-Projekt gefunden!"
+            exit 1
           fi
 
       - name: Zip Payload to IPA
         run: |
-          cd SRC
-          mkdir -p build/Payload
-          cp -r build/Build/Products/Release-iphoneos/*.app build/Payload/
-          cd build
+          APP_PATH=$(find . -type d -name "*.app" | head -n 1)
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
           zip -r SegwayWorld.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SegwayWorld-IPA
-          path: SRC/build/SegwayWorld.ipa
+          path: SegwayWorld.ipa
