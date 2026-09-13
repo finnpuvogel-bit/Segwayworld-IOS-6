@@ -21,14 +21,17 @@ jobs:
       - name: Build Xcode Project
         run: |
           cd SRC
-          # Automatisches Suchen von Workspace/Project
+          # Workspace/Projekt suchen
           WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
           PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
           
+          # Das erste verfügbare Scheme dynamisch auslesen
           if [ -n "$WORKSPACE" ]; then
-            xcodebuild -workspace "$WORKSPACE" -scheme "Navi für ninebot" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+            TARGET_SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list | awk '/Schemes:/{flag=1; next} /^[[:space:]]*$/{flag=0} flag' | xargs | awk '{print $1}')
+            xcodebuild -workspace "$WORKSPACE" -scheme "$TARGET_SCHEME" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
           else
-            xcodebuild -project "$PROJECT" -scheme "Navi für ninebot" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+            TARGET_SCHEME=$(xcodebuild -project "$PROJECT" -list | awk '/Schemes:/{flag=1; next} /^[[:space:]]*$/{flag=0} flag' | xargs | awk '{print $1}')
+            xcodebuild -project "$PROJECT" -scheme "$TARGET_SCHEME" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
           fi
 
       - name: Zip Payload to IPA
