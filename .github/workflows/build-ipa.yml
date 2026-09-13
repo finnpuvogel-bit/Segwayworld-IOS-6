@@ -1,0 +1,46 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+
+      - name: Install CocoaPods
+        run: |
+          cd SRC
+          pod install || pod install --repo-update || true
+
+      - name: Build Xcode Project
+        run: |
+          cd SRC
+          # Automatisches Suchen von Workspace/Project
+          WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
+          PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
+          
+          if [ -n "$WORKSPACE" ]; then
+            xcodebuild -workspace "$WORKSPACE" -scheme "Navi für ninebot" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          else
+            xcodebuild -project "$PROJECT" -scheme "Navi für ninebot" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          fi
+
+      - name: Zip Payload to IPA
+        run: |
+          cd SRC
+          mkdir -p build/Payload
+          cp -r build/Build/Products/Release-iphoneos/*.app build/Payload/
+          cd build
+          zip -r SegwayWorld.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SegwayWorld-IPA
+          path: SRC/build/SegwayWorld.ipa
